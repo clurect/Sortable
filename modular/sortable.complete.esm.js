@@ -171,7 +171,7 @@ function matches( /**HTMLElement*/el, /**String*/selector) {
   return false;
 }
 function getParentOrHost(el) {
-  return el.host && el !== document && el.host.nodeType ? el.host : el.parentNode;
+  return el.host && el !== document && el.host.nodeType && el.host !== el ? el.host : el.parentNode;
 }
 function closest( /**HTMLElement*/el, /**String*/selector, /**HTMLElement*/ctx, includeCTX) {
   if (el) {
@@ -2214,6 +2214,43 @@ Sortable.prototype = /** @lends Sortable.prototype */{
       css(cloneEl, 'display', '');
       cloneHidden = false;
     }
+  },
+  moveItem: function moveItem(item, target) {
+    var multiDrag = this.options.multiDrag;
+    if (multiDrag) {
+      // Use MultiDrag's utility if available
+      multiDrag.utils.moveElements(item, target, this.el);
+    } else {
+      // Simple fallback for non-MultiDrag sortables
+      this.captureAnimationState();
+      if (target) {
+        this.el.insertBefore(item, target);
+      } else {
+        this.el.appendChild(item);
+      }
+      this.animateAll();
+    }
+    return this;
+  },
+  moveItems: function moveItems(items, target) {
+    var _this2 = this;
+    var multiDrag = this.options.multiDrag;
+    if (multiDrag) {
+      multiDrag.utils.moveElements(items, target, this.el);
+    } else {
+      // If MultiDrag isn't enabled, move items one by one
+      items.forEach(function (item) {
+        return _this2.moveItem(item, target);
+      });
+    }
+    return this;
+  },
+  moveSelected: function moveSelected(target) {
+    var multiDrag = this.options.multiDrag;
+    if (multiDrag) {
+      multiDrag.utils.moveSelected(target, this.el);
+    }
+    return this;
   }
 };
 function _globalDragOver( /**Event*/evt) {
@@ -3292,6 +3329,60 @@ function MultiDragPlugin() {
         if (!sortable || !sortable.options.multiDrag || !~index) return;
         toggleClass(el, sortable.options.selectedClass, false);
         multiDragElements.splice(index, 1);
+      },
+      /**
+                * Programmatically move elements to target position
+                * @param {HTMLElement|Array} elements - Element or array of elements to move
+                * @param {HTMLElement} target - Target element to move to (will insert before this element)
+                * @param {HTMLElement} [parent=target.parentNode] - Parent container
+                * @param {Boolean} [appendIfLast=true] - Append to parent if target is null (insert at end)
+                */
+      moveElements: function moveElements(elements, target) {
+        var parent = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : target === null || target === void 0 ? void 0 : target.parentNode;
+        var appendIfLast = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : true;
+        if (!elements) return;
+
+        // Convert to array if single element
+        var elementsToMove = Array.isArray(elements) ? elements : [elements];
+        if (!elementsToMove.length) return;
+        var sortable = parent[expando];
+        if (!sortable) return;
+
+        // Capture current state for animation
+        sortable.captureAnimationState();
+
+        // Move elements to new position
+        elementsToMove.forEach(function (el) {
+          if (target && parent.contains(target)) {
+            parent.insertBefore(el, target);
+          } else if (appendIfLast) {
+            parent.appendChild(el);
+          }
+        });
+
+        // Animate the changes and dispatch events
+        sortable.animateAll();
+
+        // Dispatch update and sort events
+        dispatchEvent({
+          sortable: sortable,
+          name: 'update',
+          targetEl: elementsToMove[0]
+        });
+        dispatchEvent({
+          sortable: sortable,
+          name: 'sort',
+          targetEl: elementsToMove[0]
+        });
+      },
+      /**
+       * Move selected elements to target position
+       * @param {HTMLElement} target - Element to move selected items to
+       * @param {HTMLElement} [parent=target.parentNode] - Parent container
+       */
+      moveSelected: function moveSelected(target) {
+        var parent = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : target === null || target === void 0 ? void 0 : target.parentNode;
+        this.moveElements(multiDragElements, target, parent);
       }
     },
     eventProperties: function eventProperties() {

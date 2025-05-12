@@ -549,7 +549,60 @@ function MultiDragPlugin() {
 				if (!sortable || !sortable.options.multiDrag || !~index) return;
 				toggleClass(el, sortable.options.selectedClass, false);
 				multiDragElements.splice(index, 1);
-			}
+			},
+			/**
+             * Programmatically move elements to target position
+             * @param {HTMLElement|Array} elements - Element or array of elements to move
+             * @param {HTMLElement} target - Target element to move to (will insert before this element)
+             * @param {HTMLElement} [parent=target.parentNode] - Parent container
+             * @param {Boolean} [appendIfLast=true] - Append to parent if target is null (insert at end)
+             */
+            moveElements(elements, target, parent = target?.parentNode, appendIfLast = true) {
+                if (!elements) return;
+                
+                // Convert to array if single element
+                const elementsToMove = Array.isArray(elements) ? elements : [elements];
+                if (!elementsToMove.length) return;
+                
+                const sortable = parent[expando];
+                if (!sortable) return;
+                
+                // Capture current state for animation
+                sortable.captureAnimationState();
+                
+                // Move elements to new position
+                elementsToMove.forEach(el => {
+                    if (target && parent.contains(target)) {
+                        parent.insertBefore(el, target);
+                    } else if (appendIfLast) {
+                        parent.appendChild(el);
+                    }
+                });
+                
+                // Animate the changes and dispatch events
+                sortable.animateAll();
+                
+                // Dispatch update and sort events
+                dispatchEvent({
+                    sortable,
+                    name: 'update',
+                    targetEl: elementsToMove[0]
+                });
+                
+                dispatchEvent({
+                    sortable,
+                    name: 'sort',
+                    targetEl: elementsToMove[0]
+                });
+            },
+            /**
+             * Move selected elements to target position
+             * @param {HTMLElement} target - Element to move selected items to
+             * @param {HTMLElement} [parent=target.parentNode] - Parent container
+             */
+            moveSelected(target, parent = target?.parentNode) {
+                this.moveElements(multiDragElements, target, parent);
+            }
 		},
 		eventProperties() {
 			const oldIndicies = [],

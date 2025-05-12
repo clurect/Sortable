@@ -1753,7 +1753,41 @@ Sortable.prototype = /** @lends Sortable.prototype */ {
 			css(cloneEl, 'display', '');
 			cloneHidden = false;
 		}
-	}
+	},
+	moveItem: function(item, target) {
+		const multiDrag = this.options.multiDrag;
+		if (multiDrag) {
+		  // Use MultiDrag's utility if available
+		  multiDrag.utils.moveElements(item, target, this.el);
+		} else {
+		  // Simple fallback for non-MultiDrag sortables
+		  this.captureAnimationState();
+		  if (target) {
+			this.el.insertBefore(item, target);
+		  } else {
+			this.el.appendChild(item);
+		  }
+		  this.animateAll();
+		}
+		return this;
+	  },
+	  moveItems: function(items, target) {
+		const multiDrag = this.options.multiDrag;
+		if (multiDrag) {
+		  multiDrag.utils.moveElements(items, target, this.el);
+		} else {
+		  // If MultiDrag isn't enabled, move items one by one
+		  items.forEach(item => this.moveItem(item, target));
+		}
+		return this;
+	  },
+	  moveSelected: function(target) {
+		const multiDrag = this.options.multiDrag;
+		if (multiDrag) {
+		  multiDrag.utils.moveSelected(target, this.el);
+		}
+		return this;
+	  }
 };
 
 function _globalDragOver(/**Event*/evt) {
